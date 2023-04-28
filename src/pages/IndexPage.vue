@@ -195,7 +195,7 @@
           >
             <template v-slot:body-cell-status="props">
               <q-td :props="props">
-                <q-chip color="primary" text-color="white" class="clickable">
+                <q-chip :color="employmentStatuses.find(status => status.id === props.row.status_id).color" text-color="white" class="clickable">
                   {{ props.value }}
                   <q-menu anchor="top start" self="bottom start">
                     <q-list style="min-width: 100px">
