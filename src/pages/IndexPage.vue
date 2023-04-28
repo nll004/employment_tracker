@@ -18,9 +18,12 @@
     { id: 8, value: "Off Market", color: 'teal-4'},
     { id: 9, value: "Terminated", color: 'teal-4'}
   ];
-  const currentDeptTab = ref('all');
+  const currentDeptTab = ref(1);
+  const displayAddDeptModal = ref(false);
+  const newDeptName = ref('');
   const deptList = ref([]);
 
+  const displayTabMenu = ref(false);
   const applicantList = ref([]);
   const displayApplicantForm = ref(false);
   const newApplicantData = ref({  name: '',
@@ -41,37 +44,65 @@
     { name: 'actions', align: 'right'}
   ]);
 
+  // ================ CRUD FUNCTIONS FOR DEPARTMENTS ==================
+
   async function getDepartmentListFromDB(){
     const response = await supabase.from('departments').select('*');
     deptList.value = response.data;
   };
   await getDepartmentListFromDB();
 
+  async function createNewDept() {
+    await supabase.from('departments').insert([{ name: newDeptName.value }]);
+    newDeptName.value = '';
+    await getDepartmentListFromDB();
+  };
+
+  async function deleteDepartment(id:number) {
+    await supabase.from('departments').delete().eq('id', id);
+    await getDepartmentListFromDB();
+  };
+
   // ================= CRUD FUNCTIONS FOR APPLICANTS ==================
-  async function getListOfApplicants(){
-    const { data } = await supabase.from('applicants').select('*');
+
+  async function getListOfApplicants(deptId){
+    const { data } = await supabase.from('applicants').select('*').eq('dept_id', deptId);
     applicantList.value = data;
   };
-  await getListOfApplicants();
+  await getListOfApplicants(currentDeptTab.value);
+
+  async function getListOfApplicantsByDept(deptId){
+    const { data } = await supabase.from('applicants').select('*')
+    applicantList.value = data;
+  };
 
   async function createNewApplicant() {
     await supabase.from('applicants').insert(newApplicantData.value);
-    await getListOfApplicants();
+    await getListOfApplicants(currentDeptTab.value);
   };
 
   async function updateApplicant(appId, columnName, value){
     await supabase.from('applicants').update({ [columnName]: value }).eq('id', appId);
-    await getListOfApplicants();
+    await getListOfApplicants(currentDeptTab.value);
   };
 
   async function deleteApplicant(id:number) {
     await supabase.from('applicants').delete().eq('id', id);
-    await getListOfApplicants();
+    await getListOfApplicants(currentDeptTab.value);
+  }
+
+  function handleRightClickOnTab(dept){
+    displayTabMenu.value = true;
+    console.log('right clicked', dept)
   }
 </script>
 
+
 <template>
   <q-page class="row items-center justify-evenly">
+
+    <!------------------ New Applicant Modal ------------------------>
+
     <q-dialog v-model="displayApplicantForm">
       <q-card>
         <q-card-section>
@@ -94,21 +125,60 @@
       </q-card>
     </q-dialog>
 
+    <!------------------ New Department Modal ------------------------->
+
+    <q-dialog v-model="displayAddDeptModal">
+      <q-card>
+        <q-card-section>
+          <div class="text-h6"> New Department </div>
+        </q-card-section>
+
+        <q-card-section class="q-pt-none" :style="{width: '300px'}">
+          <q-input label="Name" v-model="newDeptName" color="teal-7"/>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn label="OK" @click="createNewDept()" flat color="teal-7" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!--------------------------- Table ------------------------------->
+
     <div class="q-pa-md table-container app-table">
       <div class="q-gutter-y-md">
         <q-card>
           <q-tabs v-model="currentDeptTab"
-                  dense
                   class="text-grey-8"
                   active-color="secondary"
                   indicator-color="secondary"
                   align="justify"
+                  narrow-indicator dense
           >
-            <q-tab> All </q-tab>
-            <q-tab v-for="dept in deptList" :key="dept.id" >
+            <q-tab v-for="dept in deptList"
+                      :name="dept.id"
+                      :key="dept.id"
+                      @click="getListOfApplicants(currentDeptTab)"
+                      @click.right.prevent="handleRightClickOnTab(dept)"
+            >
               {{ dept.name }}
             </q-tab>
-            <q-btn label="Add Applicant" @click="displayApplicantForm=true" color="teal-7" text-color="grey-2" />
+
+            <q-btn-dropdown label="Add" color="grey-6" >
+              <q-list>
+                <q-item clickable v-close-popup @click="displayAddDeptModal=true">
+                  <q-item-section>
+                    <q-item-label> Department </q-item-label>
+                  </q-item-section>
+                </q-item>
+
+                <q-item clickable v-close-popup @click="displayApplicantForm=true">
+                  <q-item-section>
+                    <q-item-label> Applicant </q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-btn-dropdown>
           </q-tabs>
 
           <q-separator />
@@ -118,7 +188,7 @@
                     :virtual-scroll-sticky-size-start="48"
                     row-key="index"
                     style="height: 400px"
-                    flat bordered
+                    flat bordered dense
                     virtual-scroll
                     :rows="applicantList"
                     :columns="tableColumns"
@@ -139,15 +209,10 @@
                 </q-chip>
               </q-td>
             </template>
+
             <template v-slot:body-cell-actions="props">
               <q-td :props="props">
-                <q-btn flat
-                          round
-                          color="grey-8"
-                          size="xs"
-                          icon="delete"
-                          @click="deleteApplicant(props.row.id)"
-                />
+                <q-btn icon="delete" @click="deleteApplicant(props.row.id)" flat round color="grey-8" size="xs"/>
               </q-td>
             </template>
           </q-table>
@@ -156,6 +221,7 @@
     </div>
   </q-page>
 </template>
+
 
 <style scoped>
   .table-container{
