@@ -210,6 +210,14 @@
               </q-td>
             </template>
 
+            <template v-slot:body-cell-notes="props">
+              <q-td :props="props">
+                <q-input label="Notes" v-model="props.row.notes" @blur="updateApplicant(props.row.id, 'notes', props.row.notes)" color="teal-7"/>
+
+
+              </q-td>
+            </template>
+
             <template v-slot:body-cell-actions="props">
               <q-td :props="props">
                 <q-btn icon="delete" @click="deleteApplicant(props.row.id)" flat round color="grey-8" size="xs"/>
